@@ -1,0 +1,265 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>오목판</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;600&display=swap">
+<style>
+/* Layout: one-screen app — board fills the space, a thin control strip above it. Board is always kaya wood in both themes. */
+:root{
+  --bg:#eef0ea; --panel:#ffffff; --fg:#23261f; --muted:#6b7064; --line:#d6d9cf;
+  --accent:#2f5d4e; --accent-fg:#ffffff;
+  --wood:#dcb46c; --wood-dark:#c89a4e; --grid:#4a3515;
+  --f-display:"Gowun Batang", "Nanum Myeongjo", serif;
+  --f-body:"IBM Plex Sans KR", -apple-system, "Apple SD Gothic Neo", sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#171a16; --panel:#22261f; --fg:#e8eae2; --muted:#9aa093; --line:#343a31;
+  --accent:#7fb8a2; --accent-fg:#10201a; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#171a16; --panel:#22261f; --fg:#e8eae2; --muted:#9aa093; --line:#343a31;
+  --accent:#7fb8a2; --accent-fg:#10201a; color-scheme:dark }
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;
+  touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.app{height:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;
+  padding-inline:16px;padding-block:12px;max-width:1100px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+h1{font-family:var(--f-display);font-size:26px;margin:0;letter-spacing:.02em}
+.status{display:flex;align-items:center;gap:8px;font-weight:600;min-width:0}
+.dot{width:18px;height:18px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}
+.dot.b{background:radial-gradient(circle at 35% 30%,#666,#0b0b0b 70%)}
+.dot.w{background:radial-gradient(circle at 35% 30%,#fff,#d8d8d2 75%)}
+.spacer{flex:1}
+.controls{display:flex;flex-wrap:wrap;gap:8px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;background:transparent;color:var(--muted);padding:10px 14px;font:inherit;font-size:14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);font-weight:600}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:10px;
+  padding:10px 16px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
+canvas{display:block;border-radius:6px;box-shadow:0 10px 30px rgba(0,0,0,.25),0 2px 0 var(--wood-dark);touch-action:none}
+.hint{font-size:13px;color:var(--muted);text-align:center;min-height:1.2em}
+.banner{position:absolute;inset:auto 0 50% 0;margin:auto;transform:translateY(50%);display:flex;justify-content:center;pointer-events:none}
+.banner div{pointer-events:auto;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:14px;
+  padding:18px 26px;box-shadow:0 10px 40px rgba(0,0,0,.3);text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
+.banner strong{font-family:var(--f-display);font-size:28px}
+@media (max-width:560px){h1{font-size:22px}.seg button,.btn{padding:9px 11px;font-size:13px}}
+</style>
+
+<div class="app">
+  <header>
+    <h1>오목</h1>
+    <div class="status" aria-live="polite"><span class="dot b" id="turnDot"></span><span id="statusText">흑 차례</span></div>
+    <div class="spacer"></div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="모드">
+        <button id="modeAi" aria-pressed="true">컴퓨터와</button>
+        <button id="modeSolo" aria-pressed="false">혼자 양쪽</button>
+      </div>
+      <div class="seg" role="group" aria-label="내 돌" id="sideSeg">
+        <button id="sideB" aria-pressed="true">흑(선)</button>
+        <button id="sideW" aria-pressed="false">백(후)</button>
+      </div>
+      <div class="seg" role="group" aria-label="착수 방식">
+        <button id="confirmOn" aria-pressed="true" title="한 번 탭하면 미리보기, 한 번 더 탭하면 착수">두 번 탭</button>
+        <button id="confirmOff" aria-pressed="false">한 번 탭</button>
+      </div>
+      <button class="btn" id="undo">무르기</button>
+      <button class="btn primary" id="newGame">새 판</button>
+    </div>
+  </header>
+  <div class="stage" id="stage">
+    <canvas id="board" aria-label="15×15 오목판"></canvas>
+    <div class="banner" id="banner" hidden><div><strong id="bannerText"></strong><button class="btn primary" id="again">한 판 더</button></div></div>
+  </div>
+  <div class="hint" id="hint">같은 자리를 한 번 더 탭하면 돌이 놓입니다 · 가로·세로·대각선으로 다섯 개를 먼저 잇는 쪽이 이깁니다</div>
+</div>
+
+<script>
+(()=>{
+const N=15, EMPTY=0, B=1, W=2;
+const $=id=>document.getElementById(id);
+const cv=$('board'), ctx=cv.getContext('2d'), stage=$('stage');
+let S={board:[],moves:[],turn:B,mode:'ai',human:B,confirm:true,over:null};
+let preview=null, size=0, cell=0, pad=0, thinking=false;
+
+function fresh(){S.board=Array.from({length:N},()=>Array(N).fill(EMPTY));S.moves=[];S.turn=B;S.over=null;preview=null}
+
+/* ---------- rendering ---------- */
+function resize(){
+  const r=stage.getBoundingClientRect();
+  size=Math.floor(Math.max(200,Math.min(r.width,r.height)));
+  const dpr=window.devicePixelRatio||1;
+  cv.width=size*dpr;cv.height=size*dpr;cv.style.width=size+'px';cv.style.height=size+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  pad=size/(N+1)*0.9+2; cell=(size-2*pad)/(N-1);
+  draw();
+}
+const pos=i=>pad+i*cell;
+function stone(x,y,c,alpha=1){
+  const rad=cell*0.46;ctx.save();ctx.globalAlpha=alpha;
+  ctx.beginPath();ctx.arc(x+1,y+1.5,rad,0,Math.PI*2);ctx.fillStyle='rgba(0,0,0,.28)';ctx.fill();
+  const g=ctx.createRadialGradient(x-rad*.35,y-rad*.4,rad*.1,x,y,rad);
+  if(c===B){g.addColorStop(0,'#6a6a6a');g.addColorStop(.7,'#141414');g.addColorStop(1,'#050505')}
+  else{g.addColorStop(0,'#ffffff');g.addColorStop(.75,'#e9e9e3');g.addColorStop(1,'#c6c6bd')}
+  ctx.beginPath();ctx.arc(x,y,rad,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();ctx.restore();
+}
+function draw(){
+  const g=ctx.createLinearGradient(0,0,size,size);
+  g.addColorStop(0,'#e3bd76');g.addColorStop(1,'#d2a45a');
+  ctx.fillStyle=g;ctx.fillRect(0,0,size,size);
+  ctx.strokeStyle='#4a3515';ctx.lineWidth=1;
+  for(let i=0;i<N;i++){
+    ctx.beginPath();ctx.moveTo(pos(0),pos(i));ctx.lineTo(pos(N-1),pos(i));ctx.stroke();
+    ctx.beginPath();ctx.moveTo(pos(i),pos(0));ctx.lineTo(pos(i),pos(N-1));ctx.stroke();
+  }
+  ctx.lineWidth=2;ctx.strokeRect(pos(0),pos(0),pos(N-1)-pos(0),pos(N-1)-pos(0));
+  ctx.fillStyle='#4a3515';
+  for(const [a,b] of [[3,3],[3,11],[11,3],[11,11],[7,7]]){ctx.beginPath();ctx.arc(pos(a),pos(b),Math.max(2.5,cell*.1),0,Math.PI*2);ctx.fill()}
+  // coordinates
+  ctx.font=`${Math.max(9,cell*.3)}px ${getComputedStyle(document.body).fontFamily}`;ctx.fillStyle='rgba(74,53,21,.7)';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  const L='ABCDEFGHJKLMNOP';
+  for(let i=0;i<N;i++){ctx.fillText(L[i],pos(i),pad*.42);ctx.fillText(N-i,pad*.42,pos(i))}
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(S.board[r][c])stone(pos(c),pos(r),S.board[r][c]);
+  const last=S.moves[S.moves.length-1];
+  if(last){ctx.beginPath();ctx.arc(pos(last.c),pos(last.r),cell*.13,0,Math.PI*2);
+    ctx.fillStyle=S.board[last.r][last.c]===B?'#f2c14e':'#c0392b';ctx.fill()}
+  if(preview&&!S.over){stone(pos(preview.c),pos(preview.r),S.turn,.5)}
+  if(S.over&&S.over.line){
+    const l=S.over.line;ctx.strokeStyle='rgba(192,57,43,.85)';ctx.lineWidth=Math.max(3,cell*.12);ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(pos(l[0].c),pos(l[0].r));ctx.lineTo(pos(l[l.length-1].c),pos(l[l.length-1].r));ctx.stroke();
+  }
+}
+
+/* ---------- rules ---------- */
+const DIRS=[[0,1],[1,0],[1,1],[1,-1]];
+const inb=(r,c)=>r>=0&&c>=0&&r<N&&c<N;
+function winLine(r,c){
+  const p=S.board[r][c];
+  for(const [dr,dc] of DIRS){
+    const line=[{r,c}];
+    for(let k=1;inb(r+dr*k,c+dc*k)&&S.board[r+dr*k][c+dc*k]===p;k++)line.push({r:r+dr*k,c:c+dc*k});
+    for(let k=1;inb(r-dr*k,c-dc*k)&&S.board[r-dr*k][c-dc*k]===p;k++)line.unshift({r:r-dr*k,c:c-dc*k});
+    if(line.length>=5)return line;
+  }
+  return null;
+}
+function place(r,c){
+  if(S.over||S.board[r][c])return false;
+  S.board[r][c]=S.turn;S.moves.push({r,c});preview=null;
+  const line=winLine(r,c);
+  if(line)S.over={winner:S.turn,line};
+  else if(S.moves.length===N*N)S.over={winner:0};
+  else S.turn=S.turn===B?W:B;
+  return true;
+}
+
+/* ---------- computer ---------- */
+function lineScore(r,c,p,dr,dc){
+  let cnt=1,open=0,gap=0;
+  for(const s of [1,-1]){
+    let k=1;
+    while(inb(r+dr*k*s,c+dc*k*s)&&S.board[r+dr*k*s][c+dc*k*s]===p){cnt++;k++}
+    const rr=r+dr*k*s,cc=c+dc*k*s;
+    if(inb(rr,cc)&&S.board[rr][cc]===EMPTY){
+      open++;
+      // one-gap pattern like X_XX
+      if(inb(rr+dr*s,cc+dc*s)&&S.board[rr+dr*s][cc+dc*s]===p)gap++;
+    }
+  }
+  if(cnt>=5)return 1e7;
+  if(cnt===4)return open===2?2e5:open===1?2e4:0;
+  if(cnt===3){if(gap&&open)return 1.5e4;return open===2?8000:open===1?600:0}
+  if(cnt===2){if(gap&&open===2)return 6000;return open===2?400:open===1?60:0}
+  return open===2?15:open===1?4:0;
+}
+function cellScore(r,c,p){
+  let t=0,big=0;
+  for(const [dr,dc] of DIRS){const v=lineScore(r,c,p,dr,dc);t+=v;if(v>=6000)big++}
+  if(big>=2)t+=5e4; // double threat (3-3, 4-3)
+  return t;
+}
+function aiMove(){
+  if(!S.moves.length)return{r:7,c:7};
+  const me=S.turn,op=me===B?W:B;let best=-1,cands=[];
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    if(S.board[r][c])continue;
+    let near=false;
+    for(let dr=-2;dr<=2&&!near;dr++)for(let dc=-2;dc<=2;dc++)if(inb(r+dr,c+dc)&&S.board[r+dr][c+dc]){near=true;break}
+    if(!near)continue;
+    const s=cellScore(r,c,me)*1.1+cellScore(r,c,op)-(Math.abs(r-7)+Math.abs(c-7))*0.5;
+    if(s>best+1e-6){best=s;cands=[{r,c}]}else if(Math.abs(s-best)<1e-6)cands.push({r,c});
+  }
+  return cands[Math.floor(Math.random()*cands.length)];
+}
+function maybeAi(){
+  if(S.mode!=='ai'||S.over||S.turn===S.human)return;
+  thinking=true;update();
+  setTimeout(()=>{const m=aiMove();if(m)place(m.r,m.c);thinking=false;update()},280);
+}
+
+/* ---------- input ---------- */
+cv.addEventListener('pointerdown',e=>{
+  if(S.over||thinking)return;
+  if(S.mode==='ai'&&S.turn!==S.human)return;
+  const rect=cv.getBoundingClientRect();
+  const c=Math.round((e.clientX-rect.left-pad)/cell),r=Math.round((e.clientY-rect.top-pad)/cell);
+  if(!inb(r,c)||S.board[r][c])return;
+  if(S.confirm&&!(preview&&preview.r===r&&preview.c===c)){preview={r,c};draw();return}
+  place(r,c);update();maybeAi();
+});
+
+function update(){
+  const names={[B]:'흑',[W]:'백'};
+  $('turnDot').className='dot '+(S.turn===B?'b':'w');
+  let t;
+  if(S.over)t=S.over.winner?`${names[S.over.winner]} 승리`:'무승부';
+  else if(thinking)t='컴퓨터가 생각 중…';
+  else if(S.mode==='ai')t=S.turn===S.human?`내 차례 (${names[S.turn]})`:`컴퓨터 차례 (${names[S.turn]})`;
+  else t=`${names[S.turn]} 차례`;
+  $('statusText').textContent=t+` · ${S.moves.length}수`;
+  if(S.over){
+    let msg=S.over.winner?`${names[S.over.winner]} 승리!`:'무승부';
+    if(S.mode==='ai'&&S.over.winner)msg=S.over.winner===S.human?'이겼습니다!':'컴퓨터 승리';
+    $('bannerText').textContent=msg;
+  }
+  $('banner').hidden=!S.over;
+  $('undo').disabled=!S.moves.length||thinking;
+  $('sideSeg').style.opacity=S.mode==='ai'?1:.4;
+  for(const [id,on] of [['modeAi',S.mode==='ai'],['modeSolo',S.mode==='solo'],['sideB',S.human===B],['sideW',S.human===W],['confirmOn',S.confirm],['confirmOff',!S.confirm]])
+    $(id).setAttribute('aria-pressed',on);
+  $('hint').textContent=(S.confirm?'같은 자리를 한 번 더 탭하면 돌이 놓입니다 · ':'')+'가로·세로·대각선으로 다섯 개를 먼저 잇는 쪽이 이깁니다';
+  draw();
+}
+function newGame(){fresh();update();maybeAi()}
+function undo(){
+  if(thinking)return;
+  const n=S.mode==='ai'?(S.turn===S.human||S.over?(S.moves.length>=2?2:1):1):1;
+  const wasOver=S.over;
+  for(let i=0;i<n&&S.moves.length;i++){const m=S.moves.pop();S.board[m.r][m.c]=EMPTY}
+  S.over=null;preview=null;S.turn=S.moves.length%2===0?B:W;
+  update();maybeAi();
+}
+$('newGame').onclick=newGame;$('again').onclick=newGame;$('undo').onclick=undo;
+$('modeAi').onclick=()=>{S.mode='ai';newGame()};
+$('modeSolo').onclick=()=>{S.mode='solo';newGame()};
+$('sideB').onclick=()=>{if(S.mode!=='ai')return;S.human=B;newGame()};
+$('sideW').onclick=()=>{if(S.mode!=='ai')return;S.human=W;newGame()};
+$('confirmOn').onclick=()=>{S.confirm=true;update()};
+$('confirmOff').onclick=()=>{S.confirm=false;preview=null;update()};
+
+new ResizeObserver(resize).observe(stage);
+function start(data){
+  if(data&&data.board){S=data}else fresh();
+  resize();update();maybeAi();
+}
+window.claude?.hot?.snapshot?.(()=>S);
+window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
+})();
+</script>
+
+</body></html>
